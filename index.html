@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حساب الأرباح والتكلفة</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            direction: rtl;
+            background-color: #25174A; /* اللون المطلوب للخلفية */
+            padding: 20px;
+            color: #fff; /* لتغيير لون النص إلى الأبيض لجعل النص مقروءًا على الخلفية الداكنة */
+        }
+
+        .content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            color: #000; /* لون النص داخل الحاوية */
+        }
+
+        h1, h2 {
+            color: #fff; /* لون العناوين */
+            text-align: center; /* توسيط النص */
+        }
+
+        .input-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .input-row label {
+            font-size: 14px;
+            color: #fff; /* لون النص للعناوين */
+        }
+
+        .input-row input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        .product-list {
+            margin-top: 20px;
+        }
+
+        .product-entry {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+
+        .product-entry img {
+            max-width: 50px;
+            max-height: 50px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .product-entry span,
+        .product-entry input {
+            flex: 1;
+            text-align: center;
+        }
+
+        .product-entry span.profit {
+            color: green; /* لون الأرباح بالأخضر */
+        }
+
+        .product-entry span.wholesale-price {
+            color: red; /* لون سعر الجملة بالأحمر */
+        }
+
+        .product-entry input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .product-entry button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #FFC107; /* لون متناسق لتعديل المنتجات */
+            color: #000;
+            cursor: pointer;
+        }
+
+        .product-entry button:hover {
+            background-color: #FFB300;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            padding-top: 100px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            width: 80%;
+            max-width: 700px;
+        }
+
+        .modal-content, #caption {
+            animation-name: zoom;
+            animation-duration: 0.6s;
+        }
+
+        @keyframes zoom {
+            from {transform:scale(0)}
+            to {transform:scale(1)}
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <h1>حساب الأرباح والتكلفة</h1>
+    <div class="input-row">
+        <label for="productName">اسم المنتج</label>
+        <input type="text" id="productName" placeholder="اسم المنتج" required>
+        
+        <label for="wholesalePrice">سعر الجملة</label>
+        <input type="number" id="wholesalePrice" placeholder="سعر الجملة" required>
+        
+        <label for="discount">نسبة الخصم (%)</label>
+        <input type="number" id="discount" placeholder="نسبة الخصم" required>
+        
+        <label for="profit">الأرباح</label>
+        <input type="number" id="profit" placeholder="الأرباح" required>
+        
+        <label for="productImage">صورة المنتج</label>
+        <input type="file" id="productImage" accept="image/*" onchange="displayImagePreview(this)">
+    </div>
+    <button type="button" onclick="addProduct()">إضافة منتج</button>
+    <button type="button" onclick="calculateTotals()">حساب</button>
+    <button type="button" onclick="saveChanges()">حفظ التغييرات</button>
+    <button type="button" onclick="confirmClear()">حذف الكل</button>
+    <button type="button" onclick="exportToExcel()">تصدير إلى Excel</button>
+    <button type="button" onclick="exportToGoogleSheets()">تصدير إلى Google Sheets</button>
+
+    <div class="product-list" id="productList"></div>
+
+    <div class="results">
+        <h2>النتائج</h2>
+        <p id="totalProfit">مجموع الأرباح: 0</p>
+        <p id="totalCost">مجموع التكلفة: 0</p>
+        <p id="totalOrders">عدد الطلبات: 0</p>
+    </div>
+
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <script>
+        const CLIENT_ID = 'YOUR_CLIENT_ID';
+        const API_KEY = 'YOUR_API_KEY';
+        const DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];
+        const SCOPES = "https://www.googleapis.com/auth/spreadsheets";
+
+        document.addEventListener("DOMContentLoaded", function() {
+            loadProducts();
+        });
+
+        window.addEventListener("beforeunload", function() {
+            saveChanges();
+        });
+
+        function displayImagePreview(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('productImagePreview').src = e.target.result;
+                    document.getElementById('productImagePreview').style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function addProduct() {
+            const productName = document.getElementById('productName').value;
+            const wholesalePrice = parseFloat(document.getElementById('wholesalePrice').value);
+            const discount = parseFloat(document.getElementById('discount').value);
+            const profit = parseFloat(document.getElementById('profit').value);
+            const productImageInput = document.getElementById('productImage');
+            const productImage = productImageInput.files[0] ? URL.createObjectURL(productImageInput.files[0]) : '';
+
+            if (!productName || isNaN(wholesalePrice) || isNaN(discount) || isNaN(profit)) {
+                alert("يرجى ملء جميع الحقول بشكل صحيح.");
+                return;
+            }
+
+            const discountedPrice = wholesalePrice - (wholesalePrice * (discount / 100));
+
+            const productList = document.getElementById('productList');
+            const productEntry = document.createElement('div');
+            productEntry.className = 'product-entry';
+            productEntry.innerHTML = `
+                <img src="${productImage}" alt="${productName}" onclick="showModal(this)">
+                <span class="wholesale-price">${discountedPrice}</span>
+                <span class="profit">${profit}</span>
+                <button onclick="editProduct(this)">تعديل</button>
+                <button onclick="deleteProduct(this)">حذف</button>
+            `;
+            productList.appendChild(productEntry);
+
+            document.getElementById('productName').value = '';
+            document.getElementById('wholesalePrice').value = '';
+            document.getElementById('discount').value = '';
+            document.getElementById('profit').value = '';
+            productImageInput.value = '';
+
+            calculateTotals();
+            saveChanges(); // Save changes after adding a product
+        }
+
+        function editProduct(button) {
+            const productEntry = button.parentElement;
+            const img = productEntry.querySelector('img');
+            const spans = productEntry.getElementsByTagName('span');
+            const productName = img.alt;
+            const wholesalePrice = parseFloat(spans[0].innerText);
+            const profit = parseFloat(spans[1].innerText);
+
+            productEntry.innerHTML = `
+                <input type="text" value="${productName}">
+                <input type="number" value="${wholesalePrice}">
+                <input type="number" value="${profit}">
+                <input type="file" accept="image/*" onchange="displayImagePreview(this)">
+                <img src="${img.src}" alt="${productName}" onclick="showModal(this)">
+                <button onclick="saveEdit(this)">حفظ التغييرات</button>
+                <button onclick="cancelEdit(this)">إلغاء</button>
+            `;
+        }
+
+        function saveEdit(button) {
+            const productEntry = button.parentElement;
+            const inputs = productEntry.getElementsByTagName('input');
+            const productName = inputs[0].value;
+            const wholesalePrice = parseFloat(inputs[1].value);
+            const profit = parseFloat(inputs[2].value);
+            const productImageInput = inputs[3];
+            const productImage = productImageInput.files[0] ? URL.createObjectURL(productImageInput.files[0]) : productEntry.querySelector('img').src;
+
+            if (!productName || isNaN(wholesalePrice) || isNaN(profit)) {
+                alert("يرجى ملء جميع الحقول بشكل صحيح.");
+                return;
+            }
+
+            productEntry.innerHTML = `
+                <img src="${productImage}" alt="${productName}" onclick="showModal(this)">
+                <span class="wholesale-price">${wholesalePrice}</span>
+                <span class="profit">${profit}</span>
+                <button onclick="editProduct(this)">تعديل</button>
+                <button onclick="deleteProduct(this)">حذف</button>
+            `;
+            calculateTotals();
+            saveChanges(); // Save changes after editing a product
+        }
+
+        function cancelEdit(button) {
+            const productEntry = button.parentElement;
+            const img = productEntry.querySelector('img');
+            const spans = productEntry.getElementsByTagName('span');
+
+            productEntry.innerHTML = `
+                <img src="${img.src}" alt="${img.alt}" onclick="showModal(this)">
+                <span class="wholesale-price">${spans[0].innerText}</span>
+                <span class="profit">${spans[1].innerText}</span>
+                <button onclick="editProduct(this)">تعديل</button>
+                <button onclick="deleteProduct(this)">حذف</button>
+            `;
+        }
+
+        function deleteProduct(button) {
+            const productEntry = button.parentElement;
+            productEntry.remove();
+            calculateTotals();
+            saveChanges(); // Save changes after deleting a product
+        }
+
+        function calculateTotals() {
+            let totalProfit = 0;
+            let totalCost = 0;
+            let totalOrders = 0;
+
+            const productEntries = document.getElementsByClassName('product-entry');
+
+            for (let i = 0; i < productEntries.length; i++) {
+                const spans = productEntries[i].getElementsByTagName('span');
+                const wholesalePrice = parseFloat(spans[0].innerText);
+                const profit = parseFloat(spans[1].innerText);
+
+                if (!isNaN(profit)) {
+                    totalProfit += profit;
+                }
+
+                if (!isNaN(wholesalePrice)) {
+                    totalCost += wholesalePrice;
+                }
+            }
+
+            totalOrders = productEntries.length;
+
+            document.getElementById('totalProfit').innerText = `مجموع الأرباح: ${totalProfit}`;
+            document.getElementById('totalCost').innerText = `مجموع التكلفة: ${totalCost}`;
+            document.getElementById('totalOrders').innerText = `عدد الطلبات: ${totalOrders}`;
+        }
+
+        function saveChanges() {
+            const products = [];
+            const productEntries = document.getElementsByClassName('product-entry');
+
+            for (let i = 0; i < productEntries.length; i++) {
+                const img = productEntries[i].getElementsByTagName('img')[0].src;
+                const spans = productEntries[i].getElementsByTagName('span');
+                const wholesalePrice = parseFloat(spans[0].innerText);
+                const profit = parseFloat(spans[1].innerText);
+
+                products.push({
+                    image: img,
+                    wholesalePrice: wholesalePrice,
+                    profit: profit
+                });
+            }
+
+            localStorage.setItem('products', JSON.stringify(products));
+        }
+
+        function loadProducts() {
+            const products = JSON.parse(localStorage.getItem('products')) || [];
+            const productList = document.getElementById('productList');
+
+            products.forEach(product => {
+                const productEntry = document.createElement('div');
+                productEntry.className = 'product-entry';
+                productEntry.innerHTML = `
+                    <img src="${product.image}" alt="Product Image" onclick="showModal(this)">
+                    <span class="wholesale-price">${product.wholesalePrice}</span>
+                    <span class="profit">${product.profit}</span>
+                    <button onclick="editProduct(this)">تعديل</button>
+                    <button onclick="deleteProduct(this)">حذف</button>
+                `;
+                productList.appendChild(productEntry);
+            });
+
+            calculateTotals();
+        }
+
+        function confirmClear() {
+            if (confirm('هل أنت متأكد من أنك تريد حذف جميع المنتجات؟')) {
+                clearProducts();
+            }
+        }
+
+        function clearProducts() {
+            localStorage.removeItem('products');
+            document.getElementById('productList').innerHTML = '';
+            document.getElementById('totalProfit').innerText = 'مجموع الأرباح: 0';
+            document.getElementById('totalCost').innerText = 'مجموع التكلفة: 0';
+            document.getElementById('totalOrders').innerText = 'عدد الطلبات: 0';
+        }
+
+        function showModal(img) {
+            const modal = document.getElementById('myModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = "block";
+            modalImg.src = img.src;
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('myModal');
+            modal.style.display = "none";
+        }
+
+        function exportToExcel() {
+            const products = JSON.parse(localStorage.getItem('products')) || [];
+            let totalProfit = 0;
+            let totalCost = 0;
+
+            const ws_data = [["اسم المنتج", "سعر الجملة", "الأرباح", "الصورة"]];
+            products.forEach(product => {
+                ws_data.push([product.name, product.wholesalePrice, product.profit, product.image]);
+                totalProfit += product.profit;
+                totalCost += product.wholesalePrice;
+            });
+            ws_data.push([]);
+            ws_data.push(["مجموع الأرباح", totalProfit]);
+            ws_data.push(["مجموع التكلفة", totalCost]);
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Products");
+
+            XLSX.writeFile(wb, "products.xlsx");
+        }
+
+        function handleClientLoad() {
+            gapi.load('client:auth2', initClient);
+        }
+
+        function initClient() {
+            gapi.client.init({
+                apiKey: API_KEY,
+                clientId: CLIENT_ID,
+                discoveryDocs: DISCOVERY_DOCS,
+                scope: SCOPES
+            }).then(function () {
+                gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+                updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+            }, function(error) {
+                console.log(JSON.stringify(error, null, 2));
+            });
+        }
+
+        function updateSigninStatus(isSignedIn) {
+            if (isSignedIn) {
+                exportToGoogleSheets();
+            } else {
+                gapi.auth2.getAuthInstance().signIn();
+            }
+        }
+
+        function exportToGoogleSheets() {
+            const products = JSON.parse(localStorage.getItem('products')) || [];
+            let totalProfit = 0;
+            let totalCost = 0;
+
+            const values = [["اسم المنتج", "سعر الجملة", "الأرباح", "الصورة"]];
+            products.forEach(product => {
+                values.push([product.name, product.wholesalePrice, product.profit, product.image]);
+                totalProfit += product.profit;
+                totalCost += product.wholesalePrice;
+            });
+            values.push([]);
+            values.push(["مجموع الأرباح", totalProfit]);
+            values.push(["مجموع التكلفة", totalCost]);
+
+            const body = {
+                values: values
+            };
+
+            gapi.client.sheets.spreadsheets.create({
+                properties: {
+                    title: 'Products'
+                }
+            }).then(function(response) {
+                const spreadsheetId = response.result.spreadsheetId;
+                gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: spreadsheetId,
+                    range: 'Sheet1!A1',
+                    valueInputOption: 'RAW',
+                    resource: body
+                }).then((response) => {
+                    console.log(response);
+                    alert('تم تصدير البيانات إلى Google Sheets بنجاح!');
+                });
+            });
+        }
+
+        handleClientLoad();
+    </script>
+</body>
+</html>
